@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homework-deployment
+  namespace: homework
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: homework-app
+  template:
+    metadata:
+      labels:
+        app: homework-app
+    spec:
+      nodeSelector:
+        homework: "true"
+      containers:
+      - name: web
+        image: nginxinc/nginx-unprivileged
+        readinessProbe:
+          exec:
+            command: ["cat", "/homework/index.html"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        ports:
+        - containerPort: 8000
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "rm -f /homework/index.html"]
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+        volumeMounts:
+        - name: web-volume
+          mountPath: /homework
+        - name: nginx-conf
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+      initContainers:
+      - name: init
+        image: busybox:latest
+        command: ['sh', '-c', 'mkdir /init; date > /init/index.html']
+        volumeMounts:
+        - name: web-volume
+          mountPath: /init
+      volumes:
+      - name: web-volume
+        emptyDir: {}
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
