@@ -46,10 +46,6 @@ kubectl apply -f pod.yaml
 1. Скопировал из HW1 манифест для configmap : содержит nginx.conf с указанием порта и места хранения index.html - `nginx-cm.yaml`
 1. Написал и применил манифест для deployment - `deployment.yaml` :
 
-
-● Будет иметь стратегию обновления RollingUpdate, настроенную так,
-что в процессе обновления может быть недоступен максимум 1 под
-
 - Создается в namespace homework
 - Запускает 3 экземпляра пода, полностью аналогичных подам из HW1
 - Имеет readiness пробу, проверяющую наличие файла /homework/index.html
