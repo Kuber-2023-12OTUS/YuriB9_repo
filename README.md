@@ -57,9 +57,9 @@ kubectl apply -f pod.yaml
 - Создать ресурсы:
 
 ```bash
-kubectl apply -f namespace.yaml
-kubectl apply -f nginx-cm.yaml
-kubectl apply -f deployment.yaml
+ubuntu@k3s1 ~>kubectl apply -f namespace.yaml
+ubuntu@k3s1 ~>kubectl apply -f nginx-cm.yaml
+ubuntu@k3s1 ~>kubectl apply -f deployment.yaml
 ```
 
 ## Как проверить работоспособность
@@ -67,7 +67,8 @@ kubectl apply -f deployment.yaml
 - Проверить статус деплоймента:
 
 ```bash
-kubectl -n homework get deployment
+ubuntu@k3s1 ~>kubectl -n homework get deployment
+
 NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
 homework-deployment   0/3     3            0           13s
 ```
@@ -75,7 +76,8 @@ homework-deployment   0/3     3            0           13s
 - Проверить статус подов:
 
 ```bash
-kubectl -n homework get po
+ubuntu@k3s1 ~>kubectl -n homework get po
+
 NAME                                  READY   STATUS    RESTARTS   AGE
 homework-deployment-5c9867b9b-njmbv   0/1     Pending   0          20s
 homework-deployment-5c9867b9b-n4kb2   0/1     Pending   0          20s
@@ -85,7 +87,8 @@ homework-deployment-5c9867b9b-x4bmt   0/1     Pending   0          20s
 - Проверить сообщения указывающий на причину статуса `Pending`:
 
 ```bash
-kubectl -n homework events --for pod/homework-deployment-5c9867b9b-njmbv
+ubuntu@k3s1 ~>kubectl -n homework events --for pod/homework-deployment-5c9867b9b-njmbv
+
 LAST SEEN   TYPE      REASON             OBJECT                                    MESSAGE
 2m3s        Warning   FailedScheduling   Pod/homework-deployment-5c9867b9b-njmbv   0/1 nodes are available: 1 node(s) didn't match Pod's node affinity/selector. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling..
 ```
@@ -93,7 +96,8 @@ LAST SEEN   TYPE      REASON             OBJECT                                 
 - Узнать имена нод:
 
 ```bash
-kubectl get nodes
+ubuntu@k3s1 ~>kubectl get nodes
+
 NAME   STATUS   ROLES                  AGE   VERSION
 k3s1   Ready    control-plane,master   22d   v1.28.4+k3s2
 ```
@@ -101,14 +105,16 @@ k3s1   Ready    control-plane,master   22d   v1.28.4+k3s2
 - Применить лейбл к ноде:
 
 ```bash
-kubectl label nodes k3s1 homework=true
+ubuntu@k3s1 ~>kubectl label nodes k3s1 homework=true
+
 node/k3s1 labeled
 ```
 
 - Проверить что поды начали автоматически разворачиваться:
 
 ```bash
-kubectl -n homework events --for pod/homework-deployment-5c9867b9b-njmbv
+ubuntu@k3s1 ~>kubectl -n homework events --for pod/homework-deployment-5c9867b9b-njmbv
+
 LAST SEEN   TYPE      REASON             OBJECT                                    MESSAGE
 4m10s       Warning   FailedScheduling   Pod/homework-deployment-5c9867b9b-njmbv   0/1 nodes are available: 1 node(s) didn't match Pod's node affinity/selector. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling..
 13s         Normal    Pulling            Pod/homework-deployment-5c9867b9b-njmbv   Pulling image "busybox:latest"
@@ -125,7 +131,8 @@ LAST SEEN   TYPE      REASON             OBJECT                                 
 - Проверить статус деплоймента:
 
 ```bash
-kubectl -n homework get deployment
+ubuntu@k3s1 ~>kubectl -n homework get deployment
+
 NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
 homework-deployment   3/3     3            3           4m30s
 ```
@@ -133,10 +140,16 @@ homework-deployment   3/3     3            3           4m30s
 - Обновить образ для `web` контейнера в деплойменте:
 
 ```bash
-kubectl -n homework set image deployment/homework-deployment web=nginxinc/nginx-unprivileged:1.25.0-al
+ubuntu@k3s1 ~>kubectl -n homework set image deployment/homework-deployment web=nginxinc/nginx-unprivileged:1.25.0-al
 pine3.17
+
 deployment.apps/homework-deployment image updated
-ubuntu@k3s1 ~/o/02> k -n homework rollout status deployment
+```
+
+- Проверить статус обновления деплоймента:
+
+```bash
+ubuntu@k3s1 ~>kubectl -n homework rollout status deployment
 Waiting for deployment "homework-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
 Waiting for deployment "homework-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
 Waiting for deployment "homework-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
