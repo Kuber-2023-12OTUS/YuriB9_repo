@@ -174,21 +174,16 @@ deployment "homework-deployment" successfully rolled out
 1. Скопировал из HW2 манифест для configmap : содержит nginx.conf с указанием порта и места хранения index.html - `nginx-cm.yaml`
 1. Скопировал из HW2 манифест для deployment: содержит описание необходимых контейнеров, их конфигов и общего количества - `deployment.yaml` :
 1. Написал и применил манифест для service - `service.yaml` :
-
-- Создается в namespace homework
-- Применяется к подам с лейблом `app: homework-app`
-- Сервис слушает порт 80, перенаправляет запросы на порт 8000
-
+    - Создается в namespace homework
+    - Применяется к подам с лейблом `app: homework-app`
+    - Сервис слушает порт 80, перенаправляет запросы на порт 8000
 1. Написал и применил манифест для ingress - `ingress.yaml` :
-
-- Применяется для хоста с именем `homework.otus`
-- Перенправляет запросы с `/` и `/homepage` на ранее созданный сервис на 80 порту
-
+    - Применяется для хоста с именем `homework.otus`
+    - Перенаправляет запросы с `/` и `/homepage` на ранее созданный сервис на 80 порту
 1. Написал и применил манифест для middleware - `middleware.yaml` :
-В IngressController на основе traefik (устанавливается в k3s по-умолчанию) не предусмотрена возможность использования rewrite правил.
-Вместо них ипользуется другой подход с использованием Routers/Middlewares.
+    - Убирается префикс /homepage из пути перед пересылкой запроса.
 
-- Убирается префикс /homepage из пути перед пересылкой запроса.
+_В IngressController на основе traefik (устанавливается в k3s по умолчанию) не предусмотрена возможность использования rewrite правил. Вместо них используется другой подход с использованием Routers/Middlewares._
 
 ## Как запустить проект
 
@@ -240,4 +235,149 @@ Wed Jan 24 14:01:13 UTC 2024
 
 ubuntu@k3s1 ~> curl http://homework.otus/index.html
 Wed Jan 24 14:00:46 UTC 2024
+```
+
+## ДЗ № 4. kubernetes-volumes
+
+- [x] Основное ДЗ
+- [x] Задание со *
+
+## В процессе сделано
+
+1. Скопировал из HW3 манифест для namespace: содержит имя namespace в котором будут разворачиваться ресурсы - `namespace.yaml`
+1. Скопировал из HW3 манифест для configmap : содержит nginx.conf с указанием порта и места хранения index.html - `nginx-cm.yaml`
+1. Скопировал из HW3 манифест для deployment: содержит описание необходимых контейнеров, их конфигов и общего количества - `deployment.yaml`
+1. Скопировал из HW3 манифест для service: объединяет набор реплик (подов) в единый интерфейс, определяет селектор, который указывает, какие поды считаются частью сервиса
+1. Скопировал из HW3 манифест для ingress: пределяет хосты и пути, по которым происходит маршрутизация трафика к сервису
+1. Скопировал из HW3 манифест для middleware: убирает префикс /homepage из пути перед использованием в ингрессе.
+1. Написал и применил манифест для storageClass - `storageClass.yaml` :
+    - Использует provisioner: driver.longhorn.io
+    - Использует reclaim policy: Retain
+1. Написал и применил манифест для PersistentVolumeClaim - `pvc.yaml` :
+    - Запрашивает 1Гб из ранее созданного pvc `longhorn-storage``
+1. Написал и применил манифест для configMap - `cm.yaml` :
+    - Содержит тестовые данные
+
+## Как запустить проект
+
+_В k3s по умолчанию доступен только Local Path Provisioner. Для более полноценной работы необходимо установить `driver.longhorn.io` Provisioner._
+
+- Установить `driver.longhorn.io` Provisioner:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.5.3/deploy/longhorn.yaml
+
+namespace/longhorn-system created
+serviceaccount/longhorn-service-account created
+serviceaccount/longhorn-support-bundle created
+configmap/longhorn-default-setting created
+configmap/longhorn-storageclass created
+customresourcedefinition.apiextensions.k8s.io/backingimagedatasources.longhorn.io created
+...
+```
+
+- Проверить необходимые поды для Provisioner:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n longhorn-system get pod
+NAME                                                READY   STATUS    RESTARTS       AGE
+longhorn-ui-5b974686f-8r76n                         1/1     Running   0              2m24s
+longhorn-ui-5b974686f-2fz97                         1/1     Running   0              2m24s
+longhorn-manager-b56q5                              1/1     Running   1 (2m3s ago)   2m24s
+longhorn-driver-deployer-54d5cddccc-zbjl9           1/1     Running   0              2m24s
+csi-attacher-79b44f5d-nmhfl                         1/1     Running   0              111s
+csi-attacher-79b44f5d-nmgkh                         1/1     Running   0              111s
+csi-provisioner-c5bb4fff7-27zrt                     1/1     Running   0              111s
+csi-attacher-79b44f5d-wpdw9                         1/1     Running   0              111s
+csi-provisioner-c5bb4fff7-c42j7                     1/1     Running   0              111s
+csi-provisioner-c5bb4fff7-zrrrk                     1/1     Running   0              111s
+longhorn-csi-plugin-xhpn6                           3/3     Running   0              110s
+csi-snapshotter-58bb8475bc-gxq2q                    1/1     Running   0              111s
+csi-snapshotter-58bb8475bc-vz98p                    1/1     Running   0              111s
+csi-snapshotter-58bb8475bc-4l879                    1/1     Running   0              111s
+csi-resizer-8cc975c7f-kb55q                         1/1     Running   0              111s
+csi-resizer-8cc975c7f-x55kx                         1/1     Running   0              111s
+csi-resizer-8cc975c7f-hj6cw                         1/1     Running   0              111s
+instance-manager-62de104bb6082e841721360eaa5564dd   1/1     Running   0              118s
+engine-image-ei-68f17757-ts2dc                      1/1     Running   0              118s
+
+```
+
+- Проверить необходимый storageclass:
+
+```bash
+ubuntu@k3s1 ~> kubectl get storageclass
+NAME                   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)   rancher.io/local-path   Delete          WaitForFirstConsumer   false                  28d
+longhorn (default)     driver.longhorn.io      Delete          Immediate              true                   2m23s
+```
+
+- Создать ресурсы:
+
+```bash
+ubuntu@k3s1 ~>kubectl apply -f namespace.yaml
+ubuntu@k3s1 ~>kubectl apply -f nginx-cm.yaml
+ubuntu@k3s1 ~>kubectl apply -f cm.yaml
+ubuntu@k3s1 ~>kubectl apply -f storageClass.yaml
+ubuntu@k3s1 ~>kubectl apply -f pvc.yaml
+ubuntu@k3s1 ~>kubectl apply -f deployment.yaml
+ubuntu@k3s1 ~>kubectl apply -f service.yaml
+ubuntu@k3s1 ~>kubectl apply -f middleware.yaml
+ubuntu@k3s1 ~>kubectl apply -f ingress.yaml
+```
+
+## Как проверить работоспособность
+
+- Проверить наличие **storageClass** `longhorn-storage`:
+
+```bash
+ubuntu@k3s1 ~> k -n homework get storageClass
+
+NAME                   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)   rancher.io/local-path   Delete          WaitForFirstConsumer   false                  28d
+longhorn-storage       driver.longhorn.io      Retain          Immediate              false                  5h57m
+longhorn (default)     driver.longhorn.io      Delete          Immediate              true                   5h48m
+```
+
+- Проверить статус **pvc** - должен быть `Bound`:
+
+```bash
+ubuntu@k3s1 ~> kubectl get pvc
+
+NAME           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS       AGE
+homework-pvc   Bound    pvc-3ad7d226-31ff-4686-9120-7f7bfcc8e2d7   1Gi        RWO            longhorn-storage   9m28s
+```
+
+- Проверить статус **pv** - должен быть `Bound`:
+
+```bash
+ubuntu@k3s1 ~> kubectl get pv
+
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                  STORAGECLASS       REASON   AGE
+pvc-3ad7d226-31ff-4686-9120-7f7bfcc8e2d7   1Gi        RWO            Retain           Bound    default/homework-pvc   longhorn-storage            112s
+```
+
+- Проверить доступность сайта по путям:
+
+```bash
+ubuntu@k3s1 ~> curl http://homework.otus/
+Tue Jan 30 14:10:30 UTC 2024
+
+ubuntu@k3s1 ~> curl http://homework.otus/homepage
+Tue Jan 30 14:10:30 UTC 2024
+
+ubuntu@k3s1 ~> curl http://homework.otus/index.html
+Tue Jan 30 14:10:30 UTC 2024
+```
+
+- Проверить наличие данных из `homework-cm` ConfigMap:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n homework exec -it po/homework-deployment-644b8d59f4-5snk6 sh
+
+$ cd /homework/conf
+$ ls
+test-key-name
+$ cat /homework/conf/test-key-name
+test-key-value
 ```
