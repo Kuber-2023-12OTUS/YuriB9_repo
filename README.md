@@ -150,6 +150,7 @@ deployment.apps/homework-deployment image updated
 
 ```bash
 ubuntu@k3s1 ~>kubectl -n homework rollout status deployment
+
 Waiting for deployment "homework-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
 Waiting for deployment "homework-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
 Waiting for deployment "homework-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
@@ -160,4 +161,83 @@ Waiting for deployment "homework-deployment" rollout to finish: 1 old replicas a
 Waiting for deployment "homework-deployment" rollout to finish: 1 old replicas are pending termination...
 Waiting for deployment "homework-deployment" rollout to finish: 2 of 3 updated replicas are available...
 deployment "homework-deployment" successfully rolled out
+```
+
+## ДЗ № 3. kubernetes-networks
+
+- [x] Основное ДЗ
+- [x] Задание со *
+
+## В процессе сделано
+
+1. Скопировал из HW2 манифест для namespace: содержит имя namespace в котором будут разворачиваться ресурсы - `namespace.yaml`
+1. Скопировал из HW2 манифест для configmap : содержит nginx.conf с указанием порта и места хранения index.html - `nginx-cm.yaml`
+1. Скопировал из HW2 манифест для deployment: содержит описание необходимых контейнеров, их конфигов и общего количества - `deployment.yaml` :
+1. Написал и применил манифест для service - `service.yaml` :
+
+- Создается в namespace homework
+- Применяется к подам с лейблом `app: homework-app`
+- Сервис слушает порт 80, перенаправляет запросы на порт 8000
+
+1. Написал и применил манифест для ingress - `ingress.yaml` :
+
+- Применяется для хоста с именем `homework.otus`
+- Перенправляет запросы с `/` и `/homepage` на ранее созданный сервис на 80 порту
+
+1. Написал и применил манифест для middleware - `middleware.yaml` :
+В IngressController на основе traefik (устанавливается в k3s по-умолчанию) не предусмотрена возможность использования rewrite правил.
+Вместо них ипользуется другой подход с использованием Routers/Middlewares.
+
+- Убирается префикс /homepage из пути перед пересылкой запроса.
+
+## Как запустить проект
+
+- Создать ресурсы:
+
+```bash
+ubuntu@k3s1 ~>kubectl apply -f namespace.yaml
+ubuntu@k3s1 ~>kubectl apply -f nginx-cm.yaml
+ubuntu@k3s1 ~>kubectl apply -f deployment.yaml
+ubuntu@k3s1 ~>kubectl apply -f service.yaml
+ubuntu@k3s1 ~>kubectl apply -f middleware.yaml
+ubuntu@k3s1 ~>kubectl apply -f ingress.yaml
+```
+
+- Добавить homework.otus в /etc/hosts
+
+```bash
+192.168.1.228   homework.otus
+```
+
+## Как проверить работоспособность
+
+- Проверить статус сервиса:
+
+```bash
+ubuntu@k3s1 ~>kubectl -n homework get svc
+
+NAME               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+homework-service   ClusterIP   10.43.243.206   <none>        80/TCP    74m
+```
+
+- Проверить статус ингресса:
+
+```bash
+ubuntu@k3s1 ~>kubectl -n homework get ing
+
+NAME               CLASS     HOSTS           ADDRESS         PORTS   AGE
+homework-ingress   traefik   homework.otus   192.168.1.228   80      28m
+```
+
+- Проверить доступность сайта по путям:
+
+```bash
+ubuntu@k3s1 ~> curl http://homework.otus/
+Wed Jan 24 14:01:02 UTC 2024
+
+ubuntu@k3s1 ~> curl http://homework.otus/homepage
+Wed Jan 24 14:01:13 UTC 2024
+
+ubuntu@k3s1 ~> curl http://homework.otus/index.html
+Wed Jan 24 14:00:46 UTC 2024
 ```
