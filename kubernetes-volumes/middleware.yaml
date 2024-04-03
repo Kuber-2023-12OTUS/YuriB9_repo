@@ -1,0 +1,11 @@
+# Strip prefix /homepage
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: mw-homepage
+  namespace: homework
+spec:
+  stripPrefix:
+    forceSlash: false
+    prefixes:
+      - /homepage
