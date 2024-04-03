@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    kubernetes.io/enforce-mountable-secrets: "true"
+  name: monitoring
+  namespace: homework
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    resourceNames: ["metrics-server"]
+    verbs:
+      - get
+      - list
+  - nonResourceURLs:
+      - "/metrics"
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring
+  namespace: homework
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: monitoring
+subjects:
+- kind: ServiceAccount
+  name: monitoring
+  namespace: homework

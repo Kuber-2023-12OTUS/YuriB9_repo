@@ -254,7 +254,7 @@ Wed Jan 24 14:00:46 UTC 2024
     - Использует provisioner: driver.longhorn.io
     - Использует reclaim policy: Retain
 1. Написал и применил манифест для PersistentVolumeClaim - `pvc.yaml` :
-    - Запрашивает 1Гб из ранее созданного pvc `longhorn-storage``
+    - Запрашивает 1Гб из ранее созданного pvc `longhorn-storage`
 1. Написал и применил манифест для configMap - `cm.yaml` :
     - Содержит тестовые данные
 
@@ -380,4 +380,129 @@ $ ls
 test-key-name
 $ cat /homework/conf/test-key-name
 test-key-value
+```
+
+## ДЗ № 5. kubernetes-security
+
+- [x] Основное ДЗ
+- [] Задание со *
+
+## В процессе сделано
+
+1. Скопировал из HW4 манифест для ресурса Deployment
+1. Написал и применил манифест для ServiceAccount - `sa-monitoring.yaml` :
+    - Разрешает `get`, `list` к ресурсу `metrics-server`
+    - Разрешает `get` к эндпоинту `/metrics`
+1. Изменил манифест для Deployment - `deployment.yaml` :
+    - Запускает контейнеры от имени сервисного аккаунка `monitoring`
+1. Написал и применил манифест для ServiceAccount - `sa-cd` :
+    - Дает роль `admin` в рамках namespace `homework`
+1. Создал `kubeconfig` для ServiceAccount `cd`
+1. Сгенерировал для ServiceAccount `cd` токен с временем действия 1 день и сохранил его в файл `token`
+
+## Как запустить проект
+
+- Создать ресурсы для сервисных аккаунтов:
+
+```bash
+ubuntu@k3s1 ~>kubectl apply -f sa-monitoring.yaml
+ubuntu@k3s1 ~>kubectl apply -f sa-cd.yaml
+```
+
+- Обновить ресурс Deployment:
+
+```bash
+ubuntu@k3s1 ~>kubectl apply -f deployment.yaml
+```
+
+- Создать `kubeconfig` для ServiceAccount `cd`:
+
+```bash
+ubuntu@k3s1 ~>./generate-kubeconfig.sh
+```
+
+- Создать `token` для ServiceAccount `cd`:
+
+```bash
+ubuntu@k3s1 ~>kubectl -n homework create token cd --duration=24h > token
+```
+
+## Как проверить работоспособность
+
+- Проверить доступность эндпоинта `/metrics` из-под сервисного аккаунта `monitoring`:
+
+```bash
+ubuntu@k3s1 ~> k -n homework exec --stdin --tty po/homework-deployment-546b5dddf8-9k2gs -- bash
+
+
+nginx@homework-deployment-546b5dddf8-9k2gs:/$ SA=/var/run/secrets/kubernetes.io/serviceaccount
+nginx@homework-deployment-546b5dddf8-9k2gs:/$ TOKEN=$(cat ${SA}/token)
+
+nginx@homework-deployment-546b5dddf8-9k2gs:/$ curl -k -s --header "Authorization: Bearer ${TOKEN}" -X GET https://192.168.1.228:6443/metrics | head -5
+
+# HELP aggregator_discovery_aggregation_count_total [ALPHA] Counter of number of times discovery was aggregated
+# TYPE aggregator_discovery_aggregation_count_total counter
+aggregator_discovery_aggregation_count_total 1408
+# HELP aggregator_unavailable_apiservice [ALPHA] Gauge of APIServices which are marked as unavailable broken down by APIService name.
+# TYPE aggregator_unavailable_apiservice gauge
+```
+
+- Проверить доступность апи - доступ должен отсутствовать:
+
+```bash
+nginx@homework-deployment-546b5dddf8-9k2gs:/$ CACERT=${SA}/ca.crt
+nginx@homework-deployment-546b5dddf8-9k2gs:/$ curl -ks --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X GET https://192.168.1.228:6443/api/v1/namespaces/kube-system/endpoints
+
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "endpoints is forbidden: User \"system:serviceaccount:homework:monitoring\" cannot list resource \"endpoints\" in API group \"\" in the namespace \"kube-system\"",
+  "reason": "Forbidden",
+  "details": {
+    "kind": "endpoints"
+  },
+  "code": 403
+}
+```
+
+- Проверить доступность ресурса `metric-server` - должен быть доступен:
+
+```bash
+nginx@homework-deployment-546b5dddf8-9k2gs:/$curl -ks --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X GET https://192.168.1.228:6443/api/v1/namespaces/kube-system/endpoints/metrics-server
+
+{
+  "kind": "Endpoints",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "metrics-server",
+    "namespace": "kube-system",
+    "uid": "3879fa0d-3985-4d8a-9be6-301e7b15b7b8",
+    "resourceVersion": "3362935",
+    "creationTimestamp": "2024-01-02T13:02:26Z",
+    "labels": {
+      "kubernetes.io/cluster-service": "true",
+      "kubernetes.io/name": "Metrics-server",
+      "objectset.rio.cattle.io/hash": "a5d3bc601c871e123fa32b27f549b6ea770bcf4a"
+    },
+    "annotations": {
+      "endpoints.kubernetes.io/last-change-trigger-time": "2024-04-02T13:57:33Z"
+    }
+(сокращено)
+```
+
+- Проверить доступность ресурсов в namespace `homework` для сервисного аккаунта `cd`:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n homework --kubeconfig kubeconfig-cd  get deployments
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+homework-deployment   3/3     3            3           63d
+```
+
+- Проверить недоступность ресурсов в других namespace  для сервисного аккаунта `cd`:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n default --kubeconfig kubeconfig-cd  get deployments
+Error from server (Forbidden): deployments.apps is forbidden: User "system:serviceaccount:homework:cd" cannot list resource "deployments" in API group "apps" in the namespace "default"
 ```
