@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: homework-ingress
+  namespace: {{ template "web.namespace" . }}
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host: {{ .Values.network.ingress.host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.network.service.name }}
+            port:
+              number: {{ .Values.network.service.port }}
+      - path: /homepage
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.network.service.name }}
+            port:
+              number: {{ .Values.network.service.port }}

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-cm
+  namespace: {{ template "web.namespace" . }}
+data:
+  test-key-name: "test-key-value"

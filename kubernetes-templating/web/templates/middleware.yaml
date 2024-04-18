@@ -1,0 +1,9 @@
+# Strip prefix /homepage
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: mw-homepage
+  namespace: {{ template "web.namespace" . }}
+spec:
+  stripPrefix:
+{{ toYaml .Values.stripPrefix | indent 4 }}

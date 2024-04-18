@@ -506,3 +506,39 @@ homework-deployment   3/3     3            3           63d
 ubuntu@k3s1 ~> kubectl -n default --kubeconfig kubeconfig-cd  get deployments
 Error from server (Forbidden): deployments.apps is forbidden: User "system:serviceaccount:homework:cd" cannot list resource "deployments" in API group "apps" in the namespace "default"
 ```
+
+## ДЗ № 6. kubernetes-templates
+
+- [x] Задание 1
+- [x] Задание 2
+
+## В процессе сделано
+
+1. Скопировал из HW4 манифесты для ресурсов
+1. Инициализировал helm template
+1. Шаблонизировал манифесты с помощью helm
+1. Написал helmfile для Задания #2
+
+## Как запустить проект
+
+- Запустить билд зависимостей:
+
+```bash
+ubuntu@k3s1 ~>helm dependency build
+```
+
+- Устанавливаем helm-chart приложения web:
+
+```bash
+ubuntu@k3s1 ~>helm upgrade --install web web -f values.yaml -n homework --create-namespace
+```
+
+## Как проверить работоспособность
+
+- Ресурсы должны быть созданы успешно:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n homework get all
+```
+
+См. команды из ДЗ #4
