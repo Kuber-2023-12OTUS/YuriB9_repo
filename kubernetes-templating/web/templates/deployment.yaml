@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homework-deployment
+  namespace: {{ template "web.namespace" . }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.deployment.labels }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.deployment.labels }}
+    spec:
+      nodeSelector:
+        homework: "true"
+      containers:
+      - name: {{ .Values.deployment.containers.name }}
+        image: {{ .Values.deployment.containers.image }}:{{ .Values.deployment.containers.tag }}
+        {{- if .Values.deployment.containers.readinessProbe }}
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: {{ .Values.deployment.containers.port }}
+          initialDelaySeconds: {{ .Values.deployment.containers.readinessProbeDelay }}
+          periodSeconds: 5
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.deployment.containers.port }}
+        lifecycle:
+          preStop:
+            exec:
+              command: [{{ .Values.deployment.containers.command }}]
+        resources:
+          limits:
+            cpu: {{ .Values.deployment.containers.resources.limits.cpu }}
+            memory: {{ .Values.deployment.containers.resources.limits.memory }}
+        volumeMounts:
+            {{- if .Values.deployment.volumes }}
+            {{- range .Values.deployment.volumes }}
+        - name: {{ .name }}
+          mountPath: {{ .mountPath }}
+            {{- end }}
+            {{- end }}
+
+      initContainers:
+      - name: {{ .Values.deployment.initContainers.name }}
+        image: {{ .Values.deployment.initContainers.image }}:{{ .Values.deployment.initContainers.tag }}
+        command: [{{ .Values.deployment.initContainers.command }}]
+        volumeMounts:
+            {{- if .Values.deployment.initContainers.volumeMounts }}
+            {{- range .Values.deployment.initContainers.volumeMounts }}
+        - name: {{ .name }}
+          mountPath: {{ .mountPath }}
+            {{- end }}
+            {{- end }}
+      {{ if .Values.volumes -}}
+      volumes:
+      {{ range $index, $volume := .Valuesvolumes }}
+      - name: {{ $volume.name }}
+      {{ if $volume.persistentVolumeClaim }}
+        persistentVolumeClaim:
+          claimName: {{ $volume.persistentVolumeClaim.claimName }}
+      {{ else if $volume.configMap }}
+        configMap:
+          name: {{ $volume.configMap.name }}
+          {{ if $volume.configMap.items }}
+          items:
+          {{ range $item := $volume.configMap.items }}
+          - key: {{ $item.key }}
+            path: {{ $item.path }}
+          {{ end }}
+          {{ end }}
+      {{ end }}
+      {{ end }}
+      {{ end }}
+
+  strategy:
+    type: {{ .Values.deployment.deploymentType }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.deployment.deploymentMaxUnavailable }}

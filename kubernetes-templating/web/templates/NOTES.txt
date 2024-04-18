@@ -1,0 +1,1 @@
+Адрес сервиса http://{{ .Values.network.ingress.host }}/homepage
