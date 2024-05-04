@@ -610,3 +610,90 @@ No resources found in default namespace.
 ubuntu@k3s1 ~> kubectl get mysql.otus.homework/mysql
 error: the server doesn't have a resource type "mysql"
 ```
+
+## ДЗ № 8. kubernetes-monitoring
+
+- [x] Задание
+
+## В процессе сделано
+
+1. Создал образ nginx (на основе nginx-unprivileged) отдающий метрики по /metrics
+1. Установил prometheus-operator с помощью helm
+1. Создал манифесты Deployment (добавлен второй контейнер с nginx prometheus exporter) и Service
+1. Создал манифест ServiceMonitor, описывающий сбор метрик
+
+## Как запустить проект
+
+- Создать и запушить в репозиторий кастомный образ с nginx:
+
+```bash
+ubuntu@k3s1 ~> docker build . -t nginx:0.1
+ubuntu@k3s1 ~> docker image tag nginx:0.1 batkovyu/otus_nginx:0.1
+ubuntu@k3s1 ~> docker push batkovyu/otus_nginx:0.1
+```
+
+- Установить prometheus-operator:
+
+```bash
+ubuntu@k3s1 ~> export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+ubuntu@k3s1 ~> helm upgrade --install kube-prometheus oci://registry-1.docker.io/bitnamicharts/kube-prometheus -n monitoring --create-namespace
+Release "kube-prometheus" does not exist. Installing it now.
+Pulled: registry-1.docker.io/bitnamicharts/kube-prometheus:9.0.5
+Digest: sha256:634c95f08e34ea3e3492909c9d5c654d5e4dcc8e5cd49a334fe7fbe24b646413
+NAME: kube-prometheus
+LAST DEPLOYED: Sat May  4 06:39:38 2024
+NAMESPACE: monitoring
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+CHART NAME: kube-prometheus
+CHART VERSION: 9.0.5
+APP VERSION: 0.73.2
+...
+
+```
+
+- Применить все манифесты:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f .
+deployment.apps/nginx-status created
+service/nginx-status created
+servicemonitor.monitoring.coreos.com/nginx-status created
+```
+
+## Как проверить работоспособность
+
+- Убедиться что ресурсы созданы и в рабочем состоянии:
+
+```bash
+ubuntu@k3s1 ~> kubectl get all
+NAME                                READY   STATUS    RESTARTS   AGE
+pod/nginx-status-65d4c4dcbb-qzggd   2/2     Running   0          61s
+
+NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)             AGE
+service/kubernetes     ClusterIP   10.43.0.1       <none>        443/TCP             110m
+service/nginx-status   ClusterIP   10.43.236.237   <none>        8080/TCP,9113/TCP   61s
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-status   1/1     1            1           61s
+
+NAME                                      DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-status-65d4c4dcbb   1         1         1       61s
+```
+
+- Пробросить порт сервиса Prometheus на локальную машину:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n monitoring port-forward --address 0.0.0.0 service/kube-prometheus-prometheus 9090:9090
+Forwarding from 0.0.0.0:9090 -> 9090
+Handling connection for 9090
+```
+
+- Зайти адресу http://192.168.1.228:9090 и убедиться, что метрики nginx присутствуют. Пример:
+
+```bash
+nginx_connections_accepted{container="nginx-prometheus-exporter", endpoint="metrics", instance="10.42.0.13:9113", job="nginx-status", namespace="default", pod="nginx-status-65d4c4dcbb-qzggd", service="nginx-status"}
+103
+```
