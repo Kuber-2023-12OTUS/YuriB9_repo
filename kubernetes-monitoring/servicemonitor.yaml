@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nginx-status
+  labels:
+    team: homework
+spec:
+  selector:
+    matchLabels:
+      app: nginx-status
+  endpoints:
+  - path: /metrics
+    port: metrics
+  jobLabel: nginx-status
