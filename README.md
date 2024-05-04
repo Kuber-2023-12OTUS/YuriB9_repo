@@ -542,3 +542,71 @@ ubuntu@k3s1 ~> kubectl -n homework get all
 ```
 
 См. команды из ДЗ #4
+
+## ДЗ № 7. kubernetes-operators
+
+- [x] Задание
+- [x] Задание c *
+- [ ] Задание c **
+
+## В процессе сделано
+
+1. Создал манифест CRD (kind Mysql)
+1. Создал сопутствующие манифесты: ClusterRole, ClusterRoleBinding (сначала широкий набор прав, потом обновлено на миниальный набор прав в соответствии с заданием с *), ServiceAccount
+1. Создал манифест Deployment для ранее созданного оператора
+
+## Как запустить проект
+
+- Применить все манифесты:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f .
+clusterrole.rbac.authorization.k8s.io/mysql-operator created
+clusterrolebinding.rbac.authorization.k8s.io/mysql-operator created
+customresourcedefinition.apiextensions.k8s.io/mysqls.otus.homework created
+deployment.apps/mysql-operator created
+mysql.otus.homework/mysql created
+serviceaccount/mysql-operator created
+```
+
+## Как проверить работоспособность
+
+- Убедиться что ресурсы созданы и в рабочем состоянии:
+
+```bash
+ubuntu@k3s1 ~> kubectl get all
+NAME                                  READY   STATUS    RESTARTS   AGE
+pod/mysql-operator-6d79cb54f8-q5nx8   1/1     Running   0          12m
+pod/mysql-5b4846bfd6-v7jcq            1/1     Running   0          12m
+
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
+service/kubernetes   ClusterIP   10.43.0.1    <none>        443/TCP    122d
+service/mysql        ClusterIP   None         <none>        3306/TCP   12m
+
+NAME                             READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/mysql-operator   1/1     1            1           12m
+deployment.apps/mysql            1/1     1            1           12m
+
+NAME                                        DESIRED   CURRENT   READY   AGE
+replicaset.apps/mysql-operator-6d79cb54f8   1         1         1       12m
+replicaset.apps/mysql-5b4846bfd6            1         1         1       12m
+```
+
+- Убедиться что все ресурсы удаляются:
+
+```bash
+ubuntu@k3s1 ~> kubectl delete -f .
+clusterrole.rbac.authorization.k8s.io "mysql-operator" deleted
+clusterrolebinding.rbac.authorization.k8s.io "mysql-operator" deleted
+customresourcedefinition.apiextensions.k8s.io "mysqls.otus.homework" deleted
+deployment.apps "mysql-operator" deleted
+mysql.otus.homework "mysql" deleted
+persistentvolumeclaim "mysql-pvc" deleted
+serviceaccount "mysql-operator" deleted
+
+ubuntu@k3s1 ~> kubectl get all
+No resources found in default namespace.
+
+ubuntu@k3s1 ~> kubectl get mysql.otus.homework/mysql
+error: the server doesn't have a resource type "mysql"
+```
