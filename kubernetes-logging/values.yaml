@@ -1,0 +1,33 @@
+loki:
+  tolerations:
+    - key: infra
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  storage:
+    bucketNames:
+      chunks: yb-otus-m09
+      ruler: yb-otus-m09
+      admin: yb-otus-m09
+    type: 's3'
+    s3:
+      endpoint: storage.yandexcloud.net
+      secretAccessKey: YCNLTDAoj5r7XQoZLhEiZtfZ1-36qIucuhr6KKzD
+      accessKeyId: YCAJEMfgq3eQQIEHDgk8NzAvG
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+
+promtail:
+  tolerations:
+    - key: "node-role"
+      operator: "Equal"
+      value: "infra"
+      effect: "NoSchedule"
+
+grafana:
+  tolerations:
+    - key: infra
+      operator: Equal
+      value: "true"
+      effect: NoSchedule

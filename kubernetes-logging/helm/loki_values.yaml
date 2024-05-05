@@ -1,0 +1,50 @@
+loki:
+  storage:
+    bucketNames:
+      chunks: yb-otus-m09
+      ruler: yb-otus-m09
+      admin: yb-otus-m09
+    type: 's3'
+    s3:
+      endpoint: storage.yandexcloud.net
+      secretAccessKey: YCNLTDAoj5r7XQoZLhEiZtfZ1-removed
+      accessKeyId: YCAJEMfgq3eQQIEHDgk8NzAvG
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+
+test:
+  enabled: false
+
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  lokiCanary:
+    nodeSelector:
+      environment: "infra"
+    tolerations:
+      - key: "node-role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"
+
+singleBinary:
+  replicas: 1
+  nodeSelector:
+    environment: "infra"
+  tolerations:
+    - key: "node-role"
+      operator: "Equal"
+      value: "infra"
+      effect: "NoSchedule"
+
+gateway:
+  nodeSelector:
+    environment: "infra"
+  tolerations:
+    - key: "node-role"
+      operator: "Equal"
+      value: "infra"
+      effect: "NoSchedule"
