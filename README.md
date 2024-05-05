@@ -697,3 +697,129 @@ Handling connection for 9090
 nginx_connections_accepted{container="nginx-prometheus-exporter", endpoint="metrics", instance="10.42.0.13:9113", job="nginx-status", namespace="default", pod="nginx-status-65d4c4dcbb-qzggd", service="nginx-status"}
 103
 ```
+
+## ДЗ № 9. kubernetes-logging
+
+- [x] Задание
+
+## В процессе сделано
+
+1. Развернул Managed Kubernetes кластер в Yandex cloud с помощью terraform. В кластере два пула нод: worker и infra (taint "node-role=infra:NoSchedule")
+1. Развернул S3 бакет (+ сервисаня учетка с правами storage.editor) в Yandex cloud с помощью terraform
+1. Установил в k8s с помощью helm-чарта Loki
+1. Установил в k8s с помощью helm-чарта Promtail
+1. Установил в k8s с помощью helm-чарта Grafana
+1. Настроил в Grafana data source к Loki
+
+## Как запустить проект
+
+- Иницализировать terraform и применить конфигурацию:
+
+```bash
+ubuntu@k3s1 ~> terraform init
+ubuntu@k3s1 ~> terraform apply
+```
+
+- Добавить репозиторий с helm-чартами grafana: :
+
+```bash
+ubuntu@k3s1 ~> helm repo add grafana https://grafana.github.io/helm-charts
+"grafana" has been added to your repositories
+```
+
+- Установить Loki:
+
+```bash
+ubuntu@k3s1 ~> helm upgrade --values helm/loki_values.yaml --install loki --namespace=loki grafana/loki --create-namespace --version 5.47.0
+
+Release "loki" does not exist. Installing it now.
+NAME: loki
+LAST DEPLOYED: Sun May  5 12:18:58 2024
+NAMESPACE: loki
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+***********************************************************************
+ Welcome to Grafana Loki
+ Chart version: 5.47.0
+ Loki version: 2.9.6
+***********************************************************************
+
+Installed components:
+* loki
+```
+
+- Установить Promtail:
+
+```bash
+ubuntu@k3s1 ~> helm upgrade --values helm/promtail_values.yaml --install promtail --namespace=loki grafana/promtail
+
+Release "promtail" does not exist. Installing it now.
+NAME: promtail
+LAST DEPLOYED: Sun May  5 12:26:17 2024
+NAMESPACE: loki
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+***********************************************************************
+ Welcome to Grafana Promtail
+ Chart version: 6.15.5
+ Promtail version: 2.9.3
+***********************************************************************
+
+Verify the application is working by running these commands:
+* kubectl --namespace loki port-forward daemonset/promtail 3101
+* curl http://127.0.0.1:3101/metrics
+```
+
+- Установить Grafana:
+
+```bash
+ubuntu@k3s1 ~> helm upgrade --values helm/grafana_/_values.yaml --install grafana --namespace=loki grafana/grafana
+
+Release "grafana" does not exist. Installing it now.
+NAME: grafana
+LAST DEPLOYED: Sun May  5 12:27:21 2024
+NAMESPACE: loki
+STATUS: deployed
+REVISION: 1
+...
+```
+
+- Получить пароль админа для Grafana:
+
+```bash
+ubuntu@k3s1 ~> kubectl get secret --namespace loki grafana -o jsonpath="{.data.admin-password}"| base64 --decode
+```
+
+- Пробросить порты для Grafana:
+
+```bash
+ubuntu@k3s1 ~> kubectl port-forward --namespace loki deployments/grafana 3000:3000
+```
+
+- Сконфигурировать Data source для Loki:
+
+```bash
+http://loki:3100
+```
+
+## Как проверить работоспособность
+
+- Проверка taints:
+
+```bash
+ubuntu@k3s1 ~> kubectl get node -o wide --show-labels
+NAME                        STATUS   ROLES    AGE     VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME     LABELS
+cl1kg1gambf557pu7ccf-ilok   Ready    <none>   6m55s   v1.28.2   10.5.0.30     <none>        Ubuntu 20.04.6 LTS   5.4.0-174-generic   containerd://1.6.28   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=standard-v3,beta.kubernetes.io/os=linux,environment=dev,failure-domain.beta.kubernetes.io/zone=ru-central1-a,kubernetes.io/arch=amd64,kubernetes.io/hostname=cl1kg1gambf557pu7ccf-ilok,kubernetes.io/os=linux,node.kubernetes.io/instance-type=standard-v3,node.kubernetes.io/kube-proxy-ds-ready=true,node.kubernetes.io/masq-agent-ds-ready=true,node.kubernetes.io/node-problem-detector-ds-ready=true,role=worker-01,topology.kubernetes.io/zone=ru-central1-a,yandex.cloud/node-group-id=cat1mocujpo6acesrc4p,yandex.cloud/pci-topology=k8s,yandex.cloud/preemptible=false
+cl1tiouo1fpermevv1i4-ymil   Ready    <none>   6m45s   v1.28.2   10.5.0.20     <none>        Ubuntu 20.04.6 LTS   5.4.0-174-generic   containerd://1.6.28   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=standard-v3,beta.kubernetes.io/os=linux,environment=infra,failure-domain.beta.kubernetes.io/zone=ru-central1-a,kubernetes.io/arch=amd64,kubernetes.io/hostname=cl1tiouo1fpermevv1i4-ymil,kubernetes.io/os=linux,node.kubernetes.io/instance-type=standard-v3,node.kubernetes.io/kube-proxy-ds-ready=true,node.kubernetes.io/masq-agent-ds-ready=true,node.kubernetes.io/node-problem-detector-ds-ready=true,role=infra-01,topology.kubernetes.io/zone=ru-central1-a,yandex.cloud/node-group-id=catkapm5tjsjnid9v3o0,yandex.cloud/pci-topology=k8s,yandex.cloud/preemptible=false
+
+ubuntu@k3s1 ~> kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+NAME                        TAINTS
+cl1kg1gambf557pu7ccf-ilok   <none>
+cl1tiouo1fpermevv1i4-ymil   [map[effect:NoSchedule key:node-role value:infra]]
+```
+
+- Cмотри скриншоты в папке screenshots

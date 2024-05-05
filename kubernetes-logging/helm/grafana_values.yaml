@@ -1,0 +1,6 @@
+nodeSelector:
+  environment: "infra"
+tolerations:
+  - key: "node-role"
+    value: "infra"
+    effect: "NoSchedule"
