@@ -823,3 +823,100 @@ cl1tiouo1fpermevv1i4-ymil   [map[effect:NoSchedule key:node-role value:infra]]
 ```
 
 - Cмотри скриншоты в папке screenshots
+
+## ДЗ № 10. kubernetes-gitops
+
+- [x] Задание
+
+## В процессе сделано
+
+1. Развернул Managed Kubernetes кластер в Yandex cloud с помощью terraform. В кластере два пула нод: worker и infra (taint "node-role=infra:NoSchedule")
+1. Развернул Argo CD в namespace argocd с помощью helm-чарта
+1. Примененил манифест для AppProject: имя проекта - otus, источник - репозиторий с ДЗ курса
+1. Примененил манифест для Application: имя приложения - kubernetes-networks, namespace - homework1
+1. Примененил манифест для Application: имя приложения - kubernetes-templating, namespace - homework2
+
+## Как запустить проект
+
+- Иницализировать terraform и применить конфигурацию:
+
+```bash
+ubuntu@k3s1 ~> terraform init
+ubuntu@k3s1 ~> terraform apply
+```
+
+- Инициализировать kubeconfig:
+
+```bash
+ubuntu@k3s1 ~> yc managed-kubernetes cluster get-credentials <k8s_cluster_id> --external
+```
+
+- Добавить репозиторий с helm-чартами Argo CD: :
+
+```bash
+ubuntu@k3s1 ~> helm repo add argo https://argoproj.github.io/argo-helm
+"argo" has been added to your repositories
+```
+
+- Установить Argo CD:
+
+```bash
+ubuntu@k3s1 ~> helm upgrade --install argocd argo/argo-cd -f argocd-values.yaml -n argocd --create-namespace
+
+Release "argocd" does not exist. Installing it now.
+NAME: argocd
+LAST DEPLOYED: Mon May  6 08:22:35 2024
+NAMESPACE: argocd
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+...
+```
+
+- Получить пароль админа для Argo CD:
+
+```bash
+ubuntu@k3s1 ~> kubectl get secret --namespace argocd argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```
+
+- Пробросить порты для Argo CD:
+
+```bash
+ubuntu@k3s1 ~> kubectl port-forward --namespace argocd --address 0.0.0.0 service/argocd-server 8080:80
+```
+
+- Примененить манифест для AppProject:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f app-project.yaml
+appproject.argoproj.io/otus created
+```
+
+- Примененить манифест для Application kubernetes-networks:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f app-kubernetes-networks.yaml
+application.argoproj.io/kubernetes-networks created
+```
+
+- Запустить синхронизацию приложения kubernetes-networks:
+
+```bash
+ubuntu@k3s1 ~> argocd app sync kubernetes-networks
+```
+
+- Примененить манифест для Application kubernetes-templating:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f app-kubernetes-templating.yaml
+application.argoproj.io/kubernetes-templating created
+```
+
+## Как проверить работоспособность
+
+- Ресурсы успешно установлены в соответствующие namespace:
+
+```bash
+ubuntu@k3s1 ~> kubectl --namespace homework1 get all
+ubuntu@k3s1 ~> kubectl --namespace homework2 get all
+```
