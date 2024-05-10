@@ -930,10 +930,14 @@ ubuntu@k3s1 ~> kubectl --namespace homework2 get all
 1. Развернул Managed Kubernetes кластер в Yandex cloud с помощью terraform. В кластере один пул нод infra, с количеством узлов в пуле - 3
 1. Развернул Consul в namespace consul с помощью helm-чарта
 1. Развернул Vault в namespace vault с помощью helm-чарта
-
-1. Примененил манифест для AppProject: имя проекта - otus, источник - репозиторий с ДЗ курса
-1. Примененил манифест для Application: имя приложения - kubernetes-networks, namespace - homework1
-1. Примененил манифест для Application: имя приложения - kubernetes-templating, namespace - homework2
+1. Инициализировал vault и распечатал все поды хранилища
+1. Создал хранилище секретов otus и секрет otus/cred
+1. Создал сервисный аккаунт vault-auth и сконфигурировал авторизацию auth/kubernetes на использование этого сервисного аккаунта
+1. Создал политику otus-policy
+1. Создал роль auth/kubernetes/role/otus
+1. Установил External Secrets Operator
+1. Применил манифест SecretStore
+1. Применил манифест ExternalSecret
 
 ## Как запустить проект
 
