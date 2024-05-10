@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: csi-nginx
+  namespace: default
+spec:
+  containers:
+   - name: csi-nginx
+     image: nginxinc/nginx-unprivileged
+     volumeMounts:
+       - mountPath: /data
+         name: otus-m11
+  volumes:
+   - name: otus-m11
+     persistentVolumeClaim:
+       claimName: csi-s3-pvc
+       readOnly: false

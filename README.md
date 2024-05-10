@@ -1233,3 +1233,95 @@ ubuntu@k3s1 ~> kubectl --namespace vault get secret otus-cred -o go-template='{{
 password: asajkjkahs
 username: otus
 ```
+
+## ДЗ № 12. kubernetes-vault
+
+- [x] Задание
+
+## В процессе сделано
+
+1. Развернул Managed Kubernetes кластер и S3 бакет в Yandex Cloud с помощью terraform. В кластере один пул нод infra, с количеством узлов в пуле - 1
+1. Установил helm чарт для csi-s3
+1. Применил манифесты для Secret, StorageClass, PersistentVolumeClaim и Pod
+
+## Как запустить проект
+
+- Иницализировать terraform и применить конфигурацию:
+
+```bash
+ubuntu@k3s1 ~> terraform init
+ubuntu@k3s1 ~> terraform apply
+```
+
+- Инициализировать kubeconfig:
+
+```bash
+ubuntu@k3s1 ~> yc managed-kubernetes cluster get-credentials <k8s_cluster_id> --external
+```
+
+- Добавить репозиторий с helm-чартамом csi-s3:
+
+```bash
+ubuntu@k3s1 ~> helm repo add yandex-s3 https://yandex-cloud.github.io/k8s-csi-s3/charts
+"yandex-s3" has been added to your repositories
+
+```
+
+- Установить релиз csi-s3:
+
+```bash
+ubuntu@k3s1 ~> helm install csi-s3 yandex-s3/csi-s3
+NAME: csi-s3
+LAST DEPLOYED: Fri May 10 21:43:06 2024
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+```
+
+- Применить манифест для Secret:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f Secret.yaml
+secret/csi-s3-secret created
+```
+
+- Применить манифест для StorageClass:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f StorageClass.yaml
+storageclass.storage.k8s.io/csi-s3 created
+```
+
+- Применить манифест для PersistentVolumeClaim:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f PersistentVolumeClaim.yaml
+persistentvolumeclaim/csi-s3-pvc created
+```
+
+- Применить манифест для Pod:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f Pod.yaml
+pod/csi-nginx created
+```
+
+## Как проверить работоспособность
+
+- PVC в статусе Bound:
+
+```bash
+ubuntu@k3s1 ~> kubectl get pvc csi-s3-pvc
+NAME         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+csi-s3-pvc   Bound    pvc-27b59afb-27c1-47b9-9a82-89e2b1bf8e5e   10Gi       RWX            csi-s3         92s
+```
+
+- Volume примонтирован в контейнер:
+
+```bash
+ubuntu@k3s1 ~> kubectl exec -ti csi-nginx -- mount | grep fuse
+sb-otus-01 on /data type fuse.geesefs (rw,nosuid,nodev,relatime,user_id=65534,group_id=0,default_permissions,allow_other)
+```
+
+- Файлы видны в S3 бакете в GUI Yandex Cloud.
