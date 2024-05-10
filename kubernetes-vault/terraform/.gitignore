@@ -1,0 +1,6 @@
+sa-terraform-authorized-key.json
+terraform.tfstate.backup
+terraform.tfstate
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
+.terraform

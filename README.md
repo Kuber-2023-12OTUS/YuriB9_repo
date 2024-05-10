@@ -851,7 +851,7 @@ ubuntu@k3s1 ~> terraform apply
 ubuntu@k3s1 ~> yc managed-kubernetes cluster get-credentials <k8s_cluster_id> --external
 ```
 
-- Добавить репозиторий с helm-чартами Argo CD: :
+- Добавить репозиторий с helm-чартами Argo CD:
 
 ```bash
 ubuntu@k3s1 ~> helm repo add argo https://argoproj.github.io/argo-helm
@@ -919,4 +919,317 @@ application.argoproj.io/kubernetes-templating created
 ```bash
 ubuntu@k3s1 ~> kubectl --namespace homework1 get all
 ubuntu@k3s1 ~> kubectl --namespace homework2 get all
+```
+
+## ДЗ № 11. kubernetes-vault
+
+- [x] Задание
+
+## В процессе сделано
+
+1. Развернул Managed Kubernetes кластер в Yandex cloud с помощью terraform. В кластере один пул нод infra, с количеством узлов в пуле - 3
+1. Развернул Consul в namespace consul с помощью helm-чарта
+1. Развернул Vault в namespace vault с помощью helm-чарта
+1. Инициализировал vault и распечатал все поды хранилища
+1. Создал хранилище секретов otus и секрет otus/cred
+1. Создал сервисный аккаунт vault-auth и сконфигурировал авторизацию auth/kubernetes на использование этого сервисного аккаунта
+1. Создал политику otus-policy
+1. Создал роль auth/kubernetes/role/otus
+1. Установил External Secrets Operator
+1. Применил манифест SecretStore
+1. Применил манифест ExternalSecret
+
+## Как запустить проект
+
+- Иницализировать terraform и применить конфигурацию:
+
+```bash
+ubuntu@k3s1 ~> terraform init
+ubuntu@k3s1 ~> terraform apply
+```
+
+- Инициализировать kubeconfig:
+
+```bash
+ubuntu@k3s1 ~> yc managed-kubernetes cluster get-credentials <k8s_cluster_id> --external
+```
+
+- Склонировать репозиторий с helm-чартами Consul:
+
+```bash
+ubuntu@k3s1 ~> git clone git@github.com:hashicorp/consul-k8s.git
+Cloning into 'consul-k8s'...
+remote: Enumerating objects: 58926, done.
+remote: Counting objects: 100% (542/542), done.
+remote: Compressing objects: 100% (309/309), done.
+remote: Total 58926 (delta 315), reused 368 (delta 226), pack-reused 58384
+Receiving objects: 100% (58926/58926), 91.99 MiB | 7.80 MiB/s, done.
+Resolving deltas: 100% (41329/41329), done.
+Updating files: 100% (1620/1620), done.
+```
+
+- Установить Consul:
+
+```bash
+ubuntu@k3s1 ~> helm upgrade --install consul consul-k8s/charts/consul/ --set global.name=consul --create-namespace -n consul -f values-consul.yaml
+
+Release "consul" does not exist. Installing it now.
+NAME: consul
+LAST DEPLOYED: Fri May 10 08:37:04 2024
+NAMESPACE: consul
+STATUS: deployed
+REVISION: 1
+NOTES:
+Thank you for installing HashiCorp Consul!
+
+Your release is named consul.
+...
+```
+
+- Склонировать репозиторий с helm-чартами Vault:
+
+```bash
+ubuntu@k3s1 ~> git clone git@github.com:hashicorp/vault-helm.git
+Cloning into 'vault-helm'...
+remote: Enumerating objects: 4617, done.
+remote: Counting objects: 100% (1926/1926), done.
+remote: Compressing objects: 100% (497/497), done.
+remote: Total 4617 (delta 1680), reused 1561 (delta 1412), pack-reused 2691
+Receiving objects: 100% (4617/4617), 1.23 MiB | 4.28 MiB/s, done.
+Resolving deltas: 100% (3482/3482), done.
+```
+
+- Установить Vault:
+
+```bash
+ubuntu@k3s1 ~> helm install vault vault-helm/ --create-namespace -n vault -f values-vault.yaml
+
+NAME: vault
+LAST DEPLOYED: Fri May 10 08:40:08 2024
+NAMESPACE: vault
+STATUS: deployed
+REVISION: 1
+NOTES:
+Thank you for installing HashiCorp Vault!
+...
+```
+
+- Выполнить инициализацию Vault:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault operator init
+
+Unseal Key 1: removed
+Unseal Key 2: removed
+Unseal Key 3: removed
+Unseal Key 4: removed
+Unseal Key 5: removed
+
+Initial Root Token: removed
+
+Vault initialized with 5 key shares and a key threshold of 3.
+...
+```
+
+- Распечатать все поды хранилища:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-{0,1,2} -- vault operator unseal <Unseal Key 1/2/3>
+Key             Value
+---             -----
+Seal Type       shamir
+Initialized     true
+Sealed          false
+Total Shares    5
+Threshold       3
+Version         1.16.1
+Build Date      2024-04-03T12:35:53Z
+Storage Type    consul
+Cluster Name    vault-cluster-9729576c
+Cluster ID      29e1e5a3-cb04-0938-2a95-ba057fbf8f7e
+HA Enabled      true
+HA Cluster      https://vault-0.vault-internal:8201
+HA Mode         active
+Active Since    2024-05-10T06:37:11.171518148Z
+
+...
+```
+
+- Авторизоваться в Vault полученным при инициализации токеном:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault login removed
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                removed
+token_accessor       HEZZnGYX2YlSYdWJdcLWANyA
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+
+```
+
+- Создать хранилище секретов otus:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault secrets enable -version=2 -path=otus kv
+Success! Enabled the kv secrets engine at: otus/
+```
+
+- Создать секрет otus/cred:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault kv put otus/cred username='otus' password='asajkjkahs'
+= Secret Path =
+otus/data/cred
+
+======= Metadata =======
+Key                Value
+---                -----
+created_time       2024-05-10T06:42:49.234851055Z
+custom_metadata    <nil>
+deletion_time      n/a
+destroyed          false
+version            1
+```
+
+- Создать сервисный аккаунт:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f ServiceAccount.yaml
+serviceaccount/vault-auth created
+```
+
+- Создать секрет:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f Secret.yaml
+secret/vault-auth-token created
+```
+
+- Создать ClusterRoleBinding:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f ClusterRoleBinding.yaml
+clusterrolebinding.rbac.authorization.k8s.io/vault-auth-binding created
+```
+
+- В Vault включить авторизацию auth/kubernetes:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault auth enable kubernetes
+Success! Enabled kubernetes auth method at: kubernetes/
+```
+
+- Сконфигурировать авторизацию kubernetes на использование токена для ранее созданного аккаунта:
+
+```bash
+ubuntu@k3s1 ~> TOKEN_REVIEW_JWT=$(kubectl --kubeconfig /home/ubuntu/.kube/config -n vault get secret vault-auth-token -o go-template='{{ .data.token }}' | base64 --decode)
+ubuntu@k3s1 ~> KUBE_CA_CERT=$(kubectl --kubeconfig /home/ubuntu/.kube/config config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 --decode)
+ubuntu@k3s1 ~> KUBE_HOST=$(kubectl --kubeconfig /home/ubuntu/.kube/config config view --raw --minify --flatten --output='jsonpath={.clusters[].cluster.server}')
+
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault write auth/kubernetes/config token_reviewer_jwt="$TOKEN_REVIEW_JWT" kubernetes_host="$KUBE_HOST" kubernetes_ca_cert="$KUBE_CA_CERT" disable_local_ca_jwt="true"
+
+Success! Data written to: auth/kubernetes/config
+```
+
+- Создать политику otus-policy для секрета otus/cred:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault policy write otus-policy - <<EOF
+path "otus/data/cred" {
+    capabilities = ["read", "list"]
+}
+EOF
+Success! Uploaded policy: otus-policy
+```
+
+- В Vault создать роль auth/kubernetes/role/otus:
+
+```bash
+ubuntu@k3s1 ~> kubectl -n vault exec -it vault-0 -- vault write auth/kubernetes/role/otus bound_service_account_names=vault-auth bound_service_account_namespaces=vault policies=otus-policy ttl=24h
+Success! Data written to: auth/kubernetes/role/otus
+```
+
+- Добавить репозиторий external-secrets:
+
+```bash
+ubuntu@k3s1 ~> helm repo add external-secrets https://charts.external-secrets.io
+"external-secrets" has been added to your repositories
+```
+
+- Установить helm чарт с external-secrets:
+
+```bash
+ubuntu@k3s1 ~> helm upgrade --install external-secrets external-secrets/external-secrets --create-namespace -n vault
+Release "external-secrets" does not exist. Installing it now.
+NAME: external-secrets
+LAST DEPLOYED: Fri May 10 10:14:53 2024
+NAMESPACE: vault
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+external-secrets has been deployed successfully in namespace vault!
+...
+```
+
+- Создать SecretStore и Секрет:
+
+```bash
+ubuntu@k3s1 ~> kubectl apply -f SecretStore.yaml
+secretstore.external-secrets.io/otus-secret-store created
+
+ubuntu@k3s1 ~> kubectl apply -f ExternalSecret.yaml
+externalsecret.external-secrets.io/otus-external-secret created
+```
+
+## Как проверить работоспособность
+
+- Ресурсы успешно установлены в соответствующие namespace:
+
+```bash
+ubuntu@k3s1 ~> kubectl --namespace consul get po
+NAME                                          READY   STATUS    RESTARTS   AGE
+consul-connect-injector-5fc7b8b649-dn27w      1/1     Running   0          99s
+consul-server-0                               1/1     Running   0          99s
+consul-server-1                               1/1     Running   0          99s
+consul-server-2                               1/1     Running   0          98s
+consul-webhook-cert-manager-6b864dff9-298ls   1/1     Running   0          99s
+
+ubuntu@k3s1 ~> kubectl --namespace vault get po
+NAME                                   READY   STATUS    RESTARTS   AGE
+vault-0                                1/1     Running   0          3m5s
+vault-1                                1/1     Running   0          3m5s
+vault-2                                1/1     Running   0          3m5s
+vault-agent-injector-95c7b5566-lgg9r   1/1     Running   0          3m5s
+```
+
+- Секрет успешно создан:
+
+```bash
+ubuntu@k3s1 ~> kubectl --namespace vault get secret otus-cred
+NAME        TYPE     DATA   AGE
+otus-cred   Opaque   2      38s
+
+```
+
+- Данные внутри секрета соответствуют заданию:
+
+```bash
+ubuntu@k3s1 ~> kubectl --namespace vault get secret otus-cred -o json | jq -r '.data'
+{
+  "password": "YXNhamtqa2Focw==",
+  "username": "b3R1cw=="
+}
+
+ubuntu@k3s1 ~> kubectl --namespace vault get secret otus-cred -o go-template='{{range $k,$v := .data}}{{printf "%s: " $k}}{{if not $v}}{{$v}}{{else}}{{$v | base64decode}}{{end}}{{"\n"}}{{end}}'
+password: asajkjkahs
+username: otus
 ```
